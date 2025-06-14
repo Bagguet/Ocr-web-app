@@ -5,7 +5,6 @@ import os
 import io
 
 # --- KONFIGURACJA ---
-pytesseract.pytesseract.tesseract_cmd = 'tesseract'
 lang_config = 'eng+pol'
 app = Flask(__name__)
 
