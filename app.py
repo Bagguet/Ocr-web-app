@@ -5,16 +5,12 @@ import os
 import io
 
 # --- KONFIGURACJA ---
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = 'tesseract'
 lang_config = 'eng+pol'
 app = Flask(__name__)
 
 # --- FUNKCJA OCR ---
 def perform_ocr_on_image_web(image_stream):
-    """
-    Wykonuje optyczne rozpoznawanie znaków (OCR) na strumieniu obrazu.
-    Zwraca odczytany tekst lub informację o błędzie.
-    """
     try:
         img = Image.open(image_stream)
         text = pytesseract.image_to_string(img, lang=lang_config)
@@ -44,7 +40,6 @@ def upload_file():
 
     if file:
         image_stream = io.BytesIO(file.read())
-        # Wywołujemy zmienioną funkcję
         ocr_result = perform_ocr_on_image_web(image_stream)
         return jsonify({'text': ocr_result}), 200
 

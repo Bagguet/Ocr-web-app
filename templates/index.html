@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR przez stronę internetową</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; 
+            min-height: 90vh; 
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            margin: 20px auto; 
+            background: white;
+            padding: 25px; 
+            border-radius: 8px;
+            box-shadow: 0 0 12px rgba(0,0,0,0.15); 
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px; 
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px; 
+        }
+        input[type="file"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fcfcfc;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 17px;
+            transition: background-color 0.2s ease; 
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #loading {
+            text-align: center;
+            margin-top: 20px;
+            color: #555;
+            font-style: italic;
+            display: none; 
+        }
+        h2 {
+            margin-top: 30px; 
+            color: #444;
+            border-bottom: 1px solid #eee; 
+            padding-bottom: 10px;
+        }
+        textarea {
+            width: calc(100% - 22px);
+            height: 200px;
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Odczytaj tekst z obrazu online</h1>
+        <form id="uploadForm">
+            <label for="imageUpload" style="font-weight: bold;">Wybierz plik obrazu:</label>
+            <input type="file" id="imageUpload" name="image" accept="image/*">
+            <button type="submit">Prześlij i odczytaj tekst</button>
+        </form>
+        
+        <div id="loading">Przetwarzanie obrazu... proszę czekać.</div>
+        
+        <h2>Odczytany tekst:</h2>
+        <textarea id="ocrResult" readonly placeholder="Tutaj pojawi się odczytany tekst po przetworzeniu obrazu..."></textarea>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); 
+
+            const fileInput = document.getElementById('imageUpload');
+            const ocrResultTextarea = document.getElementById('ocrResult');
+            const loadingIndicator = document.getElementById('loading');
+
+            if (fileInput.files.length === 0) {
+                alert('Proszę wybrać plik obrazu do przetworzenia.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]); 
+
+            loadingIndicator.style.display = 'block'; 
+            ocrResultTextarea.value = 'Rozpoczynanie przetwarzania...'; 
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData 
+                });
+
+                if (response.ok) {
+                    const data = await response.json(); 
+                    ocrResultTextarea.value = data.text;
+                } else {
+
+                    const errorData = await response.json();
+                    ocrResultTextarea.value = 'Błąd przetwarzania: ' + (errorData.error || 'Nieznany błąd serwera.');
+                    console.error('Błąd serwera:', errorData);
+                }
+            } catch (error) {
+                console.error('Wystąpił błąd podczas wysyłania lub odbierania danych:', error);
+                ocrResultTextarea.value = 'Wystąpił błąd sieci lub serwera. Sprawdź konsolę przeglądarki.';
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
