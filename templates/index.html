@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCR przez stronę internetową</title>
+    <title>OCR z obrazu</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,27 +11,27 @@
             background-color: #f4f4f4;
             display: flex;
             justify-content: center;
-            align-items: flex-start; 
-            min-height: 90vh; 
+            align-items: flex-start;
+            min-height: 90vh;
         }
         .container {
             max-width: 600px;
             width: 100%;
-            margin: 20px auto; 
+            margin: 20px auto;
             background: white;
-            padding: 25px; 
+            padding: 25px;
             border-radius: 8px;
-            box-shadow: 0 0 12px rgba(0,0,0,0.15); 
+            box-shadow: 0 0 12px rgba(0,0,0,0.15);
         }
         h1 {
             text-align: center;
             color: #333;
-            margin-bottom: 25px; 
+            margin-bottom: 25px;
         }
         form {
             display: flex;
             flex-direction: column;
-            gap: 15px; 
+            gap: 15px;
         }
         input[type="file"] {
             padding: 8px;
@@ -47,7 +47,7 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 17px;
-            transition: background-color 0.2s ease; 
+            transition: background-color 0.2s ease;
         }
         button:hover {
             background-color: #0056b3;
@@ -57,17 +57,17 @@
             margin-top: 20px;
             color: #555;
             font-style: italic;
-            display: none; 
+            display: none;
         }
         h2 {
-            margin-top: 30px; 
+            margin-top: 30px;
             color: #444;
-            border-bottom: 1px solid #eee; 
+            border-bottom: 1px solid #eee;
             padding-bottom: 10px;
         }
         textarea {
             width: calc(100% - 22px);
-            height: 200px;
+            height: 250px; /* Zwiększona wysokość dla wielu wyników */
             margin-top: 15px;
             padding: 10px;
             border: 1px solid #ccc;
@@ -76,64 +76,163 @@
             font-size: 15px;
             line-height: 1.6;
         }
+        .message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Odczytaj tekst z obrazu online</h1>
         <form id="uploadForm">
-            <label for="imageUpload" style="font-weight: bold;">Wybierz plik obrazu:</label>
-            <input type="file" id="imageUpload" name="image" accept="image/*">
-            <button type="submit">Prześlij i odczytaj tekst</button>
+            <label for="imageUpload" style="font-weight: bold;">Wybierz pliki obrazów (możesz wybrać wiele):</label>
+            <input type="file" id="imageUpload" name="image" accept="image/*" multiple> <button type="submit">Prześlij i odczytaj tekst</button>
         </form>
-        
+
         <div id="loading">Przetwarzanie obrazu... proszę czekać.</div>
-        
+        <div id="copyMessage" class="message"></div>
+
         <h2>Odczytany tekst:</h2>
         <textarea id="ocrResult" readonly placeholder="Tutaj pojawi się odczytany tekst po przetworzeniu obrazu..."></textarea>
     </div>
 
     <script>
         document.getElementById('uploadForm').addEventListener('submit', async function(event) {
-            event.preventDefault(); 
+            event.preventDefault();
 
             const fileInput = document.getElementById('imageUpload');
             const ocrResultTextarea = document.getElementById('ocrResult');
             const loadingIndicator = document.getElementById('loading');
+            const copyMessage = document.getElementById('copyMessage');
+
+            copyMessage.style.display = 'none'; // Ukryj wiadomość o kopiowaniu
 
             if (fileInput.files.length === 0) {
-                alert('Proszę wybrać plik obrazu do przetworzenia.');
+                alert('Proszę wybrać pliki obrazów do przetworzenia.');
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('image', fileInput.files[0]); 
+            loadingIndicator.style.display = 'block';
+            ocrResultTextarea.value = 'Rozpoczynanie przetwarzania...';
 
-            loadingIndicator.style.display = 'block'; 
-            ocrResultTextarea.value = 'Rozpoczynanie przetwarzania...'; 
+            const files = fileInput.files;
+            let allResults = [];
+            let hadErrors = false;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const formData = new FormData();
+                formData.append('image', file); // Wysyłaj pojedynczo, aby Flask mógł obsłużyć wiele żądań lub jeden plik na raz
+                                                // WAŻNE: back-end musi być przystosowany do odbierania 'image' wielokrotnie,
+                                                // albo musimy wysłać wszystkie pliki w jednym żądaniu.
+                                                // Z uwagi na prostotę i wcześniejsze problemy, zmienimy backend na `getlist('image')`
+                                                // i wyślemy wszystkie pliki w JEDNYM żądaniu POST.
+            }
+
+            // Poprawka: Wysyłamy wszystkie pliki w jednym żądaniu, a back-end użyje request.files.getlist('image')
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('image', files[i]); // Dodaj każdy plik pod tą samą nazwą 'image'
+            }
 
             try {
                 const response = await fetch('/upload', {
                     method: 'POST',
-                    body: formData 
+                    body: formData
                 });
 
                 if (response.ok) {
-                    const data = await response.json(); 
-                    ocrResultTextarea.value = data.text;
-                } else {
+                    const data = await response.json();
+                    let fullText = "";
+                    let allCopied = true; // Flaga do sprawdzenia, czy wszystkie teksty nadają się do kopiowania
 
+                    if (Array.isArray(data.results)) { // Oczekujemy tablicy obiektów {filename: ..., text: ...}
+                        data.results.forEach(item => {
+                            fullText += `--- Tekst z pliku: ${item.filename} ---\n`;
+                            fullText += item.text + "\n\n";
+                            // Sprawdzamy, czy którykolwiek tekst jest błędem
+                            if (item.text.includes("Wystąpił błąd podczas przetwarzania obrazu:") ||
+                                item.text.includes("Nie udało się odczytać żadnego tekstu z obrazu.")) {
+                                hadErrors = true;
+                                allCopied = false;
+                            }
+                        });
+                    } else { // W przypadku pojedynczego pliku lub innego formatu
+                        fullText = data.text || "Brak wyników.";
+                        if (fullText.includes("Wystąpił błąd podczas przetwarzania obrazu:") ||
+                            fullText.includes("Nie udało się odczytać żadnego tekstu z obrazu.")) {
+                            hadErrors = true;
+                            allCopied = false;
+                        }
+                    }
+
+                    ocrResultTextarea.value = fullText.trim(); // Wyświetl wszystkie wyniki
+
+                    // Logika kopiowania do schowka - zmieniona dla wielu plików
+                    if (allCopied && fullText.trim() !== "") {
+                        try {
+                            await navigator.clipboard.writeText(fullText.trim());
+                            copyMessage.textContent = 'Wszystkie odczytane teksty zostały automatycznie skopiowane do schowka!';
+                            copyMessage.style.backgroundColor = '#d4edda';
+                            copyMessage.style.color = '#155724';
+                        } catch (err) {
+                            console.error('Błąd podczas kopiowania do schowka:', err);
+                            copyMessage.textContent = 'Nie udało się automatycznie skopiować wszystkich tekstów do schowka. Proszę skopiować ręcznie.';
+                            copyMessage.style.backgroundColor = '#f8d7da';
+                            copyMessage.style.color = '#721c24';
+                        }
+                        copyMessage.style.display = 'block';
+                        setTimeout(() => { copyMessage.style.display = 'none'; }, 5000);
+                    } else if (hadErrors) {
+                        copyMessage.textContent = 'Wystąpiły błędy podczas przetwarzania niektórych plików. Nie skopiowano tekstu.';
+                        copyMessage.style.backgroundColor = '#f8d7da';
+                        copyMessage.style.color = '#721c24';
+                        copyMessage.style.display = 'block';
+                        setTimeout(() => { copyMessage.style.display = 'none'; }, 5000);
+                    } else if (fullText.trim() === "") {
+                        copyMessage.textContent = 'Brak tekstu do skopiowania.';
+                        copyMessage.style.backgroundColor = '#fff3cd';
+                        copyMessage.style.color = '#856404';
+                        copyMessage.style.display = 'block';
+                        setTimeout(() => { copyMessage.style.display = 'none'; }, 5000);
+                    }
+
+
+                } else {
                     const errorData = await response.json();
                     ocrResultTextarea.value = 'Błąd przetwarzania: ' + (errorData.error || 'Nieznany błąd serwera.');
                     console.error('Błąd serwera:', errorData);
+                    copyMessage.style.display = 'none';
                 }
             } catch (error) {
                 console.error('Wystąpił błąd podczas wysyłania lub odbierania danych:', error);
                 ocrResultTextarea.value = 'Wystąpił błąd sieci lub serwera. Sprawdź konsolę przeglądarki.';
+                copyMessage.style.display = 'none';
             } finally {
                 loadingIndicator.style.display = 'none';
             }
         });
+
+        // Dodany przycisk zamykania aplikacji
+        document.getElementById('closeAppButton').addEventListener('click', async function() {
+            if (confirm('Czy na pewno chcesz zamknąć aplikację?')) {
+                try {
+                    await fetch('/shutdown');
+                    alert('Aplikacja została zamknięta. Możesz zamknąć okno przeglądarki.');
+                    window.close(); // Próbuje zamknąć bieżącą zakładkę/okno
+                } catch (error) {
+                    console.error('Błąd podczas zamykania aplikacji:', error);
+                    alert('Wystąpił błąd podczas zamykania aplikacji. Sprawdź konsolę lub zamknij proces ręcznie.');
+                }
+            }
+        });
+
     </script>
 </body>
 </html>
