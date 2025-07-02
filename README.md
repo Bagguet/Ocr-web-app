@@ -1,1 +1,1 @@
-# [Download latest verssnion here](https://github.com/Bagguet/Ocr-web-app/releases/latest)
+# Download latest version here [link](https://github.com/Bagguet/Ocr-web-app/releases/latest)
