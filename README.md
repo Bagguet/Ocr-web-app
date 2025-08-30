@@ -86,9 +86,6 @@ You can customize the application by modifying the following in `app.py`:
 
 > To add more languages, download the corresponding `.traineddata` file from the [Tesseract GitHub](https://github.com/tesseract-ocr/tessdata) and place it in the `tessdata/` directory.
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
